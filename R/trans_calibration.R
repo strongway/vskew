@@ -64,8 +64,13 @@ trans.fit_ab <- function(x, k,w){
   par <- lr$coefficient
   a <- par[1]
   b <- par[2]
+  if (a < 0) { # constrain, a >=0
+    a = 0
+    lr <- lm(w ~ z -1)
+    b <- lr$coefficient[1]
+  }
   # return svi param
-  param = c(par[1],par[2], x[1], x[2], x[3]) #a, b, m, rho, sigma
+  param = c(a,b, x[1], x[2], x[3]) #a, b, m, rho, sigma
   return(param)
 }
 

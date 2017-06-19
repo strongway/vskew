@@ -131,34 +131,46 @@ plot.rawchain <- function(chainvol, type = 'strike', drange = c(14,100)){
 #' Obtain greeks from a surface with a given tau
 #' Rework on vs.options with array input
 vs.greeks <- function(surf, tau, callput = 'p', k = seq(-0.5, 0.3, length.out = 1200)){
+  # change to own algo, so it is faster than fOption
   para = vs.interParameter(surf, tau)
-  # check if k is logmoneyness or strikes
-  if (max(k)<1) {
-    Strikes = exp(k)*para$U
-  } else {
-    Strikes = k
-    k = log(Strikes/para$U)
+  S = para$U # underlying
+  R = para$R # interest rate
+  if (max(k) < 1) {
+    X = exp(k) * S # strike
+  }
+  else {
+    X = k # strike
+    k = log(X/S)
   }
   ivs = vs.ivs(k, para)
-  deltas = fOptions::GBSGreeks('delta',callput, S = para$U, Strikes, tau, para$R, para$R, ivs )
-  thetas = fOptions::GBSGreeks('theta',callput, S = para$U, Strikes, tau, para$R, para$R, ivs )
-  gammas = fOptions::GBSGreeks('gamma',callput, S = para$U, Strikes, tau, para$R, para$R, ivs )
-  vegas = fOptions::GBSGreeks('vega',callput, S = para$U, Strikes, tau, para$R, para$R, ivs )
-  fopt = fOptions::GBSOption(callput, S= para$U, X = Strikes, tau, para$R, para$R, ivs)
-  #------
-  # calculate skew slope, so we can have strike delta
-  x = k/sqrt(para$maturity)
+  # calculate greeks
+  d1 = (-k + (R + ivs * ivs/2) * tau)/(ivs* sqrt(tau))
+  d2 = d1 - ivs*sqrt(tau)
+  Theta1 = -(S * dnorm(d1) * ivs)/(2 * sqrt(tau))
+  if (callput == "c") {
+    deltas = pnorm(d1)
+    thetas = Theta1  - R * X * exp(-R * tau) * pnorm(+d2)
+    prices = S * pnorm(d1) - X * exp(-R * taus) * pnorm(d2)
+  } else {# put
+    deltas = pnorm(d1) - 1
+    thetas = Theta1  + R * X * exp(-R * tau) * pnorm(-d2)
+    prices = X * exp(-R * tau) * pnorm(-d2) - S * pnorm(-d1)
+  }
+  gammas = dnorm(d1)/(S * ivs * sqrt(tau))
+  vegas = S * dnorm(d1) * sqrt(tau)
+
+  xt = k/sqrt(para$maturity)
   param = c(para$a, para$b, para$m, para$rho, para$sigma)
-  svi <- trans.svi_fun(x, param)
-  dsvi = para$b * (para$rho + (x-para$m)/sqrt((x-para$m)^2 + para$sigma^2))
-  # using derative chain rule
-  slope = para$H*svi^(para$H - 1)* dsvi /sqrt(para$maturity)
-  # true delta
-  strikeDeltas = deltas - vegas * slope / para$U[1]
-  data.frame(iv = ivs, strike = Strikes, tau = tau, delta = deltas,
-             gamma = gammas, theta = thetas, vega = vegas,
-             price = fopt@price, date = surf$date[1], U = para$U[1],
-             spot = para$spot[1], slope = slope, strikeDelta = strikeDeltas )
+  svi <- trans.svi_fun(xt, param)
+  dsvi = para$b * (para$rho + (xt - para$m)/sqrt((xt - para$m)^2 +
+                                                   para$sigma^2))
+  slope = para$H * svi^(para$H - 1) * dsvi/sqrt(para$maturity)
+  strikeDeltas = deltas - vegas * slope/para$U[1]
+  data.table(iv = ivs, strike = X, tau = tau, delta = deltas,
+             gamma = gammas, theta = thetas, vega = vegas, price = prices,
+             date = surf$date[1], U =S, spot = para$spot[1],
+             slope = slope, strikeDelta = strikeDeltas)
+
 }
 
 #' Delta Strikes

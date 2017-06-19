@@ -108,8 +108,8 @@ read.csv.zip <- function(zipfile, pattern="\\.csv$", ...){
   csv.data <- do.call(rbind, lapply(files,
                                     function(f){
                                       fp <- file.path(zipdir, f)
-                                      dat <- fread(fp,...)
-#                                      dat <- read.csv(fp, ...)
+#                                      dat <- fread(fp,...) # problem with 'Could not find first good line start '
+                                      dat <- read.csv(fp, stringsAsFactors = FALSE)
                                       return(dat)
                                     }) )
 
