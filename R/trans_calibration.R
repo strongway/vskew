@@ -145,7 +145,7 @@ trans.fit_svih <- function(k, iv, H, rho, weights = 1) {
   opar = op$par
   p = trans.fit_ab(c(opar[1],rho,opar[2]),k, w)
   # parameters: a,b, m, rho, sigma, H
-  return(data.frame(a = p[1],b = p[2],m = p[3], rho = p[4], sigma = p[5], H = H)) #a, b, m, rho, sigma, H
+  return(data.table(a = p[1],b = p[2],m = p[3], rho = p[4], sigma = p[5], H = H, err = op$value)) #a, b, m, rho, sigma, H, and errors
 }
 
 #' Fit Vol Surface with the transform method
@@ -217,6 +217,8 @@ vs.fitSurface <- function(ochain, parallel = TRUE){
     cl <- makeCluster(no_cores)
     clusterEvalQ(cl, {library(dplyr)})
     clusterEvalQ(cl, {library(vskew)})
+    clusterEvalQ(cl, {library(data.table)})
+
 
     fit_curve <- function(c, par){
       param = trans.fit_svih(c$kth,c$iv, par$H[1], par$rho[1], c$weight )
