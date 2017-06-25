@@ -222,9 +222,9 @@ chainForwardPrice <- function(pairChain, LR=0.0169){
   fChain %>% group_by(symbol, date, expiration) %>%
     mutate(mF = mean(F), sdF = sd(F)) %>%
     dplyr::filter((F > mF-1.5*sdF) & (F<mF+1.5*sdF)  ) %>%
-    select(-mF, -sdF)-> fChain2
+    select(-mF, -sdF)-> fChain
   # balance the negative and positive parities
-  fChain2 %>% group_by(symbol, date, expiration) %>%
+  fChain %>% group_by(symbol, date, expiration) %>%
     mutate(netParity = cumsum(cp)) %>%
     dplyr::filter(netParity < 0.01*spot) %>% # remove those two far put side
     group_by(symbol, date, expiration) %>%
