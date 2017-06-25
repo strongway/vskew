@@ -4,10 +4,14 @@
 \alias{vs.fitSurface}
 \title{Fit Vol Surface with the transform method}
 \usage{
-vs.fitSurface(ochain, parallel = TRUE)
+vs.fitSurface(ochain, parallel = TRUE, cl = NULL)
 }
 \arguments{
 \item{ochain}{input chain}
+
+\item{parallel}{if it is TRUE, you must first prepare cluster.}
+
+\item{cl}{parallel cluster}
 }
 \value{
 estimated parameters

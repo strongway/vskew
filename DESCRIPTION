@@ -9,6 +9,7 @@ Description: This package contains wrapped functions of SVI parameterization and
     parts: import external files, chain raw iv calculation and parameterization,
     option history price and plots.
 Imports:
+  data.table
 License: MIT + s
 Encoding: UTF-8
 LazyData: true

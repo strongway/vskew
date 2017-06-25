@@ -4,7 +4,7 @@
 \alias{plot.rawchain}
 \title{plot raw chain}
 \usage{
-\method{plot}{rawchain}(chainvol, type = "strike", drange = c(14, 100))
+plot.rawchain(chainvol, type = "strike", drange = c(14, 100))
 }
 \description{
 Plot the raw chain

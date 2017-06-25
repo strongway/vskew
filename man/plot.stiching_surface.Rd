@@ -4,8 +4,8 @@
 \alias{plot.stiching_surface}
 \title{plot iv surface with fitted model}
 \usage{
-\method{plot}{stiching_surface}(ivchain, para, range = c(7, 90),
-  type = "iv", x = "strike")
+plot.stiching_surface(ivchain, para, range = c(7, 90), type = "iv",
+  x = "strike")
 }
 \arguments{
 \item{ivchain}{iv chain}

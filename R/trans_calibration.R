@@ -155,15 +155,16 @@ trans.fit_svih <- function(k, iv, H, rho, weights = 1) {
 #' Here we assume the curvation of the iv against k/sqrt(tau) is fixed (H), and
 #' the smile rotation is fixed as well
 #' @param ochain input chain
+#' @param parallel if it is TRUE, you must first prepare cluster.
+#' @param cl parallel cluster
 #' @return estimated parameters
 #' @export
 #'
-vs.fitSurface <- function(ochain, parallel = TRUE){
+vs.fitSurface <- function(ochain, parallel = TRUE, cl = NULL){
   # step 1: roughly estimate weights based on log moneyness
-#  ochain$weight = dnorm(ochain$logmoneyness, mean = mean(ochain$logmoneyness), sd = sd(ochain$logmoneyness)*1.5)
-  # centered on the ATM
-  ochain$weight = dnorm(ochain$logmoneyness, mean = 0, sd = sd(ochain$logmoneyness)*1.5)
-
+  # centered on ATM make call side too much weight, so each DTE skew should treat different,y
+  ochain <- ochain %>% group_by(dte) %>% mutate(weight = dnorm(logmoneyness, mean = -sqrt(maturity)*0.1,
+                                                               sd = sd(logmoneyness)))
   # step 1.1: Estimate H_t Hurst component
   # it is a scaling factor for b, m, and sigma, so it can be skipped here
   #op <- optim(0.5,trans.fit_H, NULL, method = 'Brent',
@@ -212,12 +213,12 @@ vs.fitSurface <- function(ochain, parallel = TRUE){
   # estimate each with kth and ivs
   if (parallel) {
     # use parallel computing
-    no_cores <- detectCores() -1
+#    no_cores <- detectCores() -1
     # Initiate cluster
-    cl <- makeCluster(no_cores)
-    clusterEvalQ(cl, {library(dplyr)})
-    clusterEvalQ(cl, {library(vskew)})
-    clusterEvalQ(cl, {library(data.table)})
+#    cl <- makeCluster(no_cores)
+#    clusterEvalQ(cl, {library(dplyr)})
+#    clusterEvalQ(cl, {library(vskew)})
+#    clusterEvalQ(cl, {library(data.table)})
 
 
     fit_curve <- function(c, par){
@@ -231,13 +232,13 @@ vs.fitSurface <- function(ochain, parallel = TRUE){
     paras <- parLapply(cl, lchain, fit_curve, par = p)
     lr3 <-  do.call(rbind, paras)
 
-  #  stopCluster(cl)
+#    stopCluster(cl)
   }
   else {
 
-  # now we use kt2 (k/sqrt(tau)) to estimate parameters
-  lr3 <- ochain %>% group_by(date, maturity) %>%
-      do(trans.fit_svih(.$kth,.$iv, p$H[1], p$rho[1],.$weight))
+    # now we use kt2 (k/sqrt(tau)) to estimate parameters
+    lr3 <- ochain %>% group_by(date, maturity) %>%
+        do(trans.fit_svih(.$kth,.$iv, p$H[1], p$rho[1],.$weight))
   }
   spara <- left_join(lr,lr3, by=c('date','maturity'))
 

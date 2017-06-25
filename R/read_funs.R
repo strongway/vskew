@@ -222,9 +222,9 @@ chainForwardPrice <- function(pairChain, LR=0.0169){
   fChain %>% group_by(symbol, date, expiration) %>%
     mutate(mF = mean(F), sdF = sd(F)) %>%
     dplyr::filter((F > mF-1.5*sdF) & (F<mF+1.5*sdF)  ) %>%
-    select(-mF, -sdF)-> fChain
+    select(-mF, -sdF)-> fChain2
   # balance the negative and positive parities
-  fChain %>% group_by(symbol, date, expiration) %>%
+  fChain2 %>% group_by(symbol, date, expiration) %>%
     mutate(netParity = cumsum(cp)) %>%
     dplyr::filter(netParity < 0.01*spot) %>% # remove those two far put side
     group_by(symbol, date, expiration) %>%
@@ -265,20 +265,23 @@ chain.iv <- function(chain, LR=0.01){
   registerDoParallel(cl)
   clusterEvalQ(cl, {library(RQuantLib)})
 
-  chain <- chainForwardPrice(chain, LR)
-  ivc = rep(0,nrow(chain))
-  ivp = rep(0,nrow(chain))
-  foreach(idx = 1:nrow(chain)) %dopar% {
-#  for (idx in 1:nrow(chain)){
-    t = chain[idx,]
-    ivc[idx] = EuropeanOptionImpliedVolatility('call', value = t$C, t$U, t$strike, 0,t$R,t$maturity,0.1)
-    ivp[idx] = EuropeanOptionImpliedVolatility('put', value = t$P, t$U, t$strike, 0,t$R,t$maturity,0.1)
+  chain <- as.data.table(chainForwardPrice(chain, LR))
+  newiv <- foreach(idx = 1:nrow(chain), .combine = rbind) %dopar% {
+    #for (idx in 1:nrow(chain)){
+    ivc = EuropeanOptionImpliedVolatility('call', value = chain$C[idx],
+                                          chain$U[idx],chain$strike[idx],
+                                          0,chain$R[idx],chain$maturity[idx],0.1)
+    ivp = EuropeanOptionImpliedVolatility('put', value = chain$P[idx],
+                                          chain$U[idx],chain$strike[idx],
+                                          0,chain$R[idx],chain$maturity[idx],0.1)
+    data.frame(idx = idx, ivc = ivc[1], ivp = ivp[1])
   }
   #stop cluster
   stopCluster(cl)
+  newiv <- newiv %>% dplyr::arrange(idx)
+  chain$ivc <- newiv$ivc
+  chain$ivp <- newiv$ivp
 
-  chain$ivc = ivc
-  chain$ivp = ivp
   chain$iv = (chain$ivc+chain$ivp)/2
   chain
 }

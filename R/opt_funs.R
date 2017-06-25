@@ -187,9 +187,9 @@ vs.greeks <- function(surf, tau, callput = 'p', k = seq(-0.5, 0.3, length.out = 
 #' @param strikeDelta logical option for use strikeDelta
 vs.deltaStrikes <- function(deltas, surf, tau, callput = 'p', minGap = 5, strikeDelta = FALSE){
   # make sure get greeks that cover the deltas
-  gk <- vs.greeks(surf, tau, callput)
+  gk <- as.data.table(vs.greeks(surf, tau, callput))
   # add minus if it is put (default is positive)
-  if (callput == 'p' & deltas[1] > 0)
+  if (tolower(callput) == 'p' & deltas[1] > 0)
     deltas = - deltas
 
   output = gk[0,] # initialization
@@ -208,10 +208,17 @@ vs.deltaStrikes <- function(deltas, surf, tau, callput = 'p', minGap = 5, strike
     # find two closes taus
     if (gk$strike[idx] <= strike)
       idx = idx + 1
+    if (idx>nrow(gk))
+      idx = nrow(gk)
     # interpolate alpha
     alpha = (gk$strike[idx] - strike)/(gk$strike[idx]-gk$strike[idx-1])
+    if (alpha>1)      alpha = 1
+    if (alpha<0)      alpha = 0
     # interpolate the rest
-    inter_para = gk[idx,] - alpha * (gk[idx,]-gk[idx-1,])
+#    curDate = gk[idx,'date']
+#    gk[,c('date'):=NULL] # remove date
+    inter_para = gk[idx,] - alpha *(gk[idx,]-gk[idx-1,])
+#    inter_para$date = curDate
     output = rbind(output, inter_para)
   }
   output
@@ -227,3 +234,4 @@ vs.strikes <- function(strikes, surf, tau, callput ='p'){
   gk <- vs.greeks(surf, tau, callput, k)
   gk
 }
+
