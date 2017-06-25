@@ -15,7 +15,7 @@ usePackage <- function(pk){
 #' @export
 loadSkewPackages <- function(){
   usePackage(c('data.table', 'dplyr','tidyr','ggplot2','tidyr','Hmisc',
-               'RQuantLib','quantmod', 'broom','parallel',
+               'quantmod', 'broom','parallel',
                'doParallel','foreach',
                'anytime','lubridate'))
 }
@@ -156,7 +156,7 @@ read.livevol <- function(filename, LR = 0.017){
 #  raw[,dte := as.numeric(expiration - date, units = 'days')]
 #  raw[, maturity := dte/365.25]
   # remove shortest chain
-  chainP <- toChainPairs(raw)
+  chainP <- toChainPairs(raw) %>% filter(dte > 5)
   # calculate chain iv
   chain <- chain.iv(chainP, LR)
   chain
