@@ -202,7 +202,7 @@ toChainPairs <- function(chain){
           select(symbol, date, expiration, strike, P, spot, dte, maturity),
         by = c('symbol','date','expiration','strike')) %>%
     arrange(symbol, date, expiration, strike) %>%
-    dplyr::filter(!is.na(P) & C > spot*0.0002 & P > spot*0.0002 & dte > 3) -> chainpair
+    dplyr::filter(!is.na(P) & C > spot*0.0002 & P > spot*0.0002 & dte > 4) -> chainpair
   as.data.table(chainpair)
 }
 
@@ -233,8 +233,8 @@ chainForwardPrice <- function(pairChain, LR=0.0169){
   left_join(fChain, FPrice, by = c('symbol','date','expiration')) %>%
     mutate(U = exp(-R*maturity)*mF) %>% dplyr::filter(!is.na(U)) %>% # combined mean F, and U
     mutate(logmoneyness = log(strike/mF)) %>% # calculate log moneyness
-    dplyr::filter((strike -P <= mF ) & #refine chain
-                    (strike + C >= mF) )    -> chain2
+    dplyr::filter((strike -P <= mF *(1-0.00005) ) & #refine chain
+                    (strike + C >= mF *(1+0.00005) ))    -> chain2
   chain2
 }
 
@@ -281,8 +281,11 @@ chain.iv <- function(chain, LR=0.01){
   newiv <- newiv %>% dplyr::arrange(idx)
   chain$ivc <- newiv$ivc
   chain$ivp <- newiv$ivp
-
-  chain$iv = (chain$ivc+chain$ivp)/2
+  # use otm iv, and nest the chain data (2017-08-25)
+  chain <- chain %>%mutate(iv = ifelse(logmoneyness > 0, ivc,ivp)) %>%
+    select(-c(symbol, dte, cp, F)) %>%
+    group_by(date, expiration, spot, maturity, R, mF, U) %>%
+    nest()
   chain
 }
 
@@ -357,6 +360,7 @@ livevol.chain <- function(filename, rate = 0.017){
   print(r_date)
   # convert to chain
   chain <- read.livevol(filename, LR = rate)
+  #
   saveRDS(chain, file = paste0('spxchain_',r_date,'.rds'))
 
   # estimate surface
