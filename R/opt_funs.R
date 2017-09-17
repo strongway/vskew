@@ -133,31 +133,31 @@ plot.rawchain <- function(chainvol, type = 'strike', drange = c(14,100)){
 vs.greeks <- function(surf, tau, callput = 'p', k = seq(-0.5, 0.3, length.out = 1200)){
   # change to own algo, so it is faster than fOption
   para = vs.interParameter(surf, tau)
-  S = para$U # underlying
+  mF = para$mF # underlying
   R = para$R # interest rate
   if (max(k) < 1) {
-    X = exp(k) * S # strike
+    X = exp(k) * mF # strike
   }
   else {
     X = k # strike
-    k = log(X/S)
+    k = log(X/mF)
   }
   ivs = vs.ivs(k, para)
   # calculate greeks
-  d1 = (-k + (R + ivs * ivs/2) * tau)/(ivs* sqrt(tau))
+  d1 = (-k + ( ivs * ivs/2) * tau)/(ivs* sqrt(tau))
   d2 = d1 - ivs*sqrt(tau)
-  Theta1 = -(S * dnorm(d1) * ivs)/(2 * sqrt(tau))
+  Theta1 = -(mF * dnorm(d1) * ivs)/(2 * sqrt(tau))
   if (callput == "c") {
     deltas = pnorm(d1)
-    thetas = Theta1  - R * X * exp(-R * tau) * pnorm(+d2)
-    prices = S * pnorm(d1) - X * exp(-R * taus) * pnorm(d2)
+    thetas = (Theta1  - R * X * pnorm(+d2))* exp(-R * tau)
+    prices = (mF * pnorm(d1) - X  * pnorm(d2))* exp(-R*tau)
   } else {# put
     deltas = pnorm(d1) - 1
-    thetas = Theta1  + R * X * exp(-R * tau) * pnorm(-d2)
-    prices = X * exp(-R * tau) * pnorm(-d2) - S * pnorm(-d1)
+    thetas = (Theta1  + R * X  * pnorm(-d2)) * exp(-R * tau)
+    prices = (X * pnorm(-d2) - mF * pnorm(-d1))*exp(-R*tau)
   }
-  gammas = dnorm(d1)/(S * ivs * sqrt(tau))
-  vegas = S * dnorm(d1) * sqrt(tau)
+  gammas = dnorm(d1)/(mF * ivs * sqrt(tau))
+  vegas = mF * dnorm(d1) * sqrt(tau) * exp(-R*tau)
 
   xt = k/sqrt(para$maturity)
   param = c(para$a, para$b, para$m, para$rho, para$sigma)
@@ -168,7 +168,7 @@ vs.greeks <- function(surf, tau, callput = 'p', k = seq(-0.5, 0.3, length.out = 
   strikeDeltas = deltas - vegas * slope/para$U[1]
   data.table(iv = ivs, strike = X, tau = tau, delta = deltas,
              gamma = gammas, theta = thetas, vega = vegas, price = prices,
-             date = surf$date[1], U =S, spot = para$spot[1],
+             date = surf$date[1], mF =mF, spot = para$spot[1],
              slope = slope, strikeDelta = strikeDeltas)
 
 }
