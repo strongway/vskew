@@ -338,7 +338,7 @@ quasi.interIV <- function(surf, k, tau_interp) {
 #' @param n a smoothing factor for skew curve
 #' @export
 quasi.ivs <- function(surface, dte, spot = NULL, type = 'put', x = seq(-0.2,0.1,length.out = 600)){
-  tau = dte/365.25
+  tau = dte/365
   if (is.null(spot))  spot = surface$spot[1]
   UR <- UR.interp(surface, tau, spot)
   if (max(x) <1 ) {

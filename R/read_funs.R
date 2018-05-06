@@ -48,14 +48,14 @@ read.ivolchain <- function(filename){
              Bid = bid, Asked = ask) %>%
       dplyr::filter(Asked > spot *0.0002) %>% # remove tiny
       mutate(mPrice = (Bid+Asked)/2, dte = as.numeric(expiration - date, units = 'days'),
-             maturity = dte/365.25)
+             maturity = dte/365)
   }  else {# option data
     ndat <- idat %>%
       rename(callput = `call/put`, spot = `unadjusted`, oi = `open interest`,
              Bid = bid, Asked = ask) %>%
       dplyr::filter(Asked > spot *0.0002) %>% # remove tiny
       mutate(mPrice = (Bid+Asked)/2, dte = as.numeric(expiration - date, units = 'days'),
-             maturity = dte/365.25)
+             maturity = dte/365)
   }
   # convert to CP paired chain
   chainP <- toChainPairs(ndat) %>% dplyr::filter(dte > 3)
@@ -136,14 +136,14 @@ read.livevol <- function(filename, LR = 0.017){
                  expiration = anytime(expiration) + ifelse(root == 'SPX', as.ITime("9:30"), as.ITime("16:30")),
                  spot = (underlying_bid + underlying_ask)/2,
                  dte = as.numeric(expiration - date, units = 'days'),
-                 maturity = dte/365.25)
+                 maturity = dte/365)
   #  raw$date <- as.POSIXct(raw$date, format = "%Y-%m-%d %H:%M:%S")
   # expiration monthly and weekly are different
   #raw$exp_time <- ifelse(raw$root == "SPX","09:30:00", "16:30:00")
   #raw$expiration <- as.POSIXct(paste(raw$expiration, raw$exp_time), format = "%Y-%m-%d %H:%M:%S")
   #  raw <- raw %>% mutate(spot = (underlying_bid + underlying_ask)/2,
   #                      dte = as.numeric(expiration - date, units = 'days'),
-  #                      maturity = dte/365.25)
+  #                      maturity = dte/365)
   # --- change the above to fast performance
 #  raw[,`:=`(date = anytime(date),
 #            expiration = anytime(expiration) + ifelse(root == 'SPX', as.ITime("9:30"), as.ITime("16:30")),
@@ -154,7 +154,7 @@ read.livevol <- function(filename, LR = 0.017){
 #        ifelse(root == 'SPX', as.ITime("9:30"), as.ITime("16:30"))]
 #  raw[,spot := (underlying_bid + underlying_ask)/2]
 #  raw[,dte := as.numeric(expiration - date, units = 'days')]
-#  raw[, maturity := dte/365.25]
+#  raw[, maturity := dte/365]
   # remove shortest chain
   chainP <- toChainPairs(raw) %>% filter(dte > 5)
   # calculate chain iv
@@ -176,7 +176,7 @@ read.vuechain <- function(filename){
   ndat <- vuedat %>% separate(Symbol, c('symbol','OpName')) %>%
     rename(meanprice = Th.Price, date = Date, expiration = Exp.Date,
            strike = `Strike Price`, miv = `Mid IV`, callput = `Call/Put`) %>%
-    mutate(dte = as.numeric(expiration - date, units = 'days'), maturity = dte/365.25)
+    mutate(dte = as.numeric(expiration - date, units = 'days'), maturity = dte/365)
 
   # separate spot price
   spot <- ndat %>% dplyr::filter(`Item Type` == 'I' | `Item Type` == 'S') %>%

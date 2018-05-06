@@ -391,7 +391,7 @@ vs.slop0 <- function(k, para){
     par <- para %>% filter(maturity == id)
     iv = vs.ivs(k,par)
     skew = diff(iv)/diff(k)
-    df.skew = data.frame(dte = round(id*365.25), k = k,
+    df.skew = data.frame(dte = round(id*365), k = k,
                          iv = iv, skew = c(NA, skew))
     skews = rbind(skews,df.skew)
   }
@@ -414,7 +414,7 @@ vs.slope <- function(k, s){
     # using chain rule
     skew = par$H*svi^(par$H - 1)* dsvi /sqrt(id)
     iv = vs.ivs(k, par)
-    df.skew = data.frame(dte = round(id*365.25), k = k,
+    df.skew = data.frame(dte = round(id*365), k = k,
                          iv = iv, skew = skew)
     skews = rbind(skews,df.skew)
   }
@@ -432,7 +432,7 @@ vs.slope <- function(k, s){
 #' @param x a sequence of logmoneyness or strike. If max(x)<1, it will be regarded as log moneyness.
 #' @export
 vs.options <- function(surface, dte, spot = NULL, type = 'put', x = seq(-0.2,0.1,length.out = 600)){
-  tau = dte/365.25
+  tau = dte/365
   para = vs.interParameter(surface, tau)
   if (is.null(spot))  spot = para$spot[1]
   dp = spot - para$spot[1] # price change
@@ -499,7 +499,7 @@ vs.termstructure <- function(surface){
 vs.vskew <- function(x, surf, dte, spot=NULL){
   if (is.null(spot)) spot = surf$spot[1]
   # estimate vertical skew parameter at DTE
-  para0 <- vs.interParameter(surf, dte/365.25)
+  para0 <- vs.interParameter(surf, dte/365)
   # if spot is different
   mF = para0$mF + (spot - para0$spot[1]) # rough approx.
 

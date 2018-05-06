@@ -8,7 +8,7 @@
 #' @param n a smoothing factor for skew curve
 #' @export
 stiching.curve <- function(param, dte, x = seq(-0.2,0.1,length.out = 600)){
-  tau = dte/365.25
+  tau = dte/365
   UR <- UR.interp(param, tau, param$spot[1])
   if (max(x) <1 ) {
     # log moneyness
@@ -82,7 +82,7 @@ stiching.optionPrice <- function(strike, param, tau, s = NULL, type = "put") {
   # in reality iv changes. It must consider the price movement alter the whole surface in a certain way.
   # this step requires modeling.
   lm = log(strike/UR$mF)
-  iv_interp <- stiching.curve(param, tau*365.25, lm)
+  iv_interp <- stiching.curve(param, tau*365, lm)
   iv <- iv_interp$iv
   # calculate EuropeanOption parameters
   opts = NULL
@@ -152,7 +152,7 @@ plot.stiching_surface <- function(ivchain, para, range =c(7,90), type = 'iv', x 
 #' @export
 stiching.rnd <- function(param, dte, spot = NULL, type = 'put',x = seq(-0.2,0.1,length.out = 600)){
   #estimated iv curve
-  tau = dte/365.25
+  tau = dte/365
   if (is.null(spot))  spot = param$spot[1]
   iv1 <- stiching.curve(param, dte, x)
   UR <- UR.interp(param, tau, spot)
@@ -199,7 +199,7 @@ stiching.option.History <- function(start_date, exp_date, strike_combo, wholecha
   for (indx in na.indx){
     # using vol surface to estimate
     cur_dte = as.numeric(as.POSIXct(exp_date) - opt$date[indx], units = 'days')
-    tau = cur_dte / 365.25
+    tau = cur_dte / 365
     # refine the dte to 5 to max_dte that containing cur_dte
     cur_chain <- chain %>% filter(date == opt$date[indx] & dte <= max_dte & dte >= min(cur_dte, 5))
     param = svi.hybridparam(cur_chain)
@@ -247,7 +247,7 @@ stiching.plcurves <- function(start, exp_date, combo, prange, chain, t = 0){
   # walk through t curves
   for (day in t){
     dte = max_dte - day
-    opt <- stiching.optionPrice(pcombo$strike, param,  dte/365.25, pcombo$price, as.character(pcombo$type) )
+    opt <- stiching.optionPrice(pcombo$strike, param,  dte/365, pcombo$price, as.character(pcombo$type) )
     cur_pcombo = cbind(pcombo, opt)
     cur_pcombo$dte = dte
     cur_pcombo$t = day
