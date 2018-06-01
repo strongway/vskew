@@ -1,7 +1,4 @@
-#' load package
-#'
-#' load package with package array
-#' @export
+
 usePackage <- function(pk){
   for (p in pk) {
     if (!is.element(p, installed.packages()[,1])) install.packages(p, dependencies =TRUE)
@@ -9,12 +6,11 @@ usePackage <- function(pk){
   }
 }
 
-
 #' load necessary packages for vskew
 #'
 #' @export
 loadSkewPackages <- function(){
-  usePackage(c('data.table', 'dplyr','tidyr','ggplot2','tidyr','Hmisc',
+  usePackage(c('data.table', 'tidyverse', 'plotly',
                'quantmod', 'broom','parallel',
                'doParallel','foreach',
                'anytime','lubridate'))
@@ -22,17 +18,12 @@ loadSkewPackages <- function(){
 
 #' Read ivolatility option chain
 #' read option chain raw data downloaded from ivolatility
-#' @import dplyr
-#' @import tidyr
-#' @import data.table
-#' @import quantmod
-#' @import RQuantLib
 #' read ivolatility cvs file.
 #' @export
 read.ivolchain <- function(filename){
   idat <- fread(filename)
-  idat$date <-  as.POSIXct(paste(idat$date, '16:00:00'),
-                           format = "%m/%d/%y %H:%M:%S")
+  idat$date <-  as.POSIXct(paste(idat$date, '16:30:00'),
+                           format = "%m/%d/%Y %H:%M:%S")
   # split option symbol
   idat <- idat %>% separate(., col = `option symbol`,into = c('root','opsymbol'))
   # based on 'root', we know the settle time
@@ -40,7 +31,7 @@ read.ivolchain <- function(filename){
   idat$exp_time <- ifelse(idat$root == "SPX","09:30:00", "16:30:00")
   # concatenate settle time to the expiration date
   idat$expiration <-  as.POSIXct(paste(idat$expiration,idat$exp_time),
-                                 format = "%m/%d/%y %H:%M:%S")
+                                 format = "%m/%d/%Y %H:%M:%S")
 
   if ("stock price for iv" %in% colnames(idat)) {#option with iv data
     ndat <- idat %>%
@@ -61,7 +52,7 @@ read.ivolchain <- function(filename){
   chainP <- toChainPairs(ndat) %>% dplyr::filter(dte > 3)
   dates <- as.Date(unique(chainP$date))
   # get Libor interest rate
-  getLibors() -> libor
+  libor <- getSymbols('USD12MD156N',src = 'FRED', auto.assign = F)
   lb <- libor[dates] #
   if (length(lb) < 1 )
     print('Error in retrieving Libor rate')
@@ -72,7 +63,7 @@ read.ivolchain <- function(filename){
   # calculate chain iv
 
   sc <- split(chainP, chainP$date)
-  lchains <- do.call(rbind, Map(chain.iv, sc, rates))
+  lchains <- do.call(rbind, Map(estimate.iv, sc, rates))
 
   ofile <- gsub('.csv','_chain.rds',filename)
   saveRDS(lchains, file = ofile)
@@ -137,63 +128,15 @@ read.livevol <- function(filename, LR = 0.017){
                  spot = (underlying_bid + underlying_ask)/2,
                  dte = as.numeric(expiration - date, units = 'days'),
                  maturity = dte/365)
-  #  raw$date <- as.POSIXct(raw$date, format = "%Y-%m-%d %H:%M:%S")
-  # expiration monthly and weekly are different
-  #raw$exp_time <- ifelse(raw$root == "SPX","09:30:00", "16:30:00")
-  #raw$expiration <- as.POSIXct(paste(raw$expiration, raw$exp_time), format = "%Y-%m-%d %H:%M:%S")
-  #  raw <- raw %>% mutate(spot = (underlying_bid + underlying_ask)/2,
-  #                      dte = as.numeric(expiration - date, units = 'days'),
-  #                      maturity = dte/365)
-  # --- change the above to fast performance
-#  raw[,`:=`(date = anytime(date),
-#            expiration = anytime(expiration) + ifelse(root == 'SPX', as.ITime("9:30"), as.ITime("16:30")),
-#            spot = (underlying_bid + underlying_ask)/2)]
-#  raw[, dte := as.numeric(expiration - date, units = 'days')]
-#  raw[,date := anytime(date)]
-#  raw[,expiration := anytime(expiration) +
-#        ifelse(root == 'SPX', as.ITime("9:30"), as.ITime("16:30"))]
-#  raw[,spot := (underlying_bid + underlying_ask)/2]
-#  raw[,dte := as.numeric(expiration - date, units = 'days')]
-#  raw[, maturity := dte/365]
   # remove shortest chain
-  chainP <- toChainPairs(raw) %>% filter(dte > 5)
+  chainP <- toChainPairs(raw) %>% filter(dte > 3)
   # calculate chain iv
-  chain <- chain.iv(chainP, LR)
+  chain <- estimate.iv(chainP, LR)
   chain
 }
 
-#' Read optionVue option chain file
-#'
-#' read optionVue exported cvs file. It should contain:
-#' Th.Price, Date, Exp Date, Strike Price,
-#' Mid IV, Call/Put, Item Type, Market Price
-#' @export
-read.vuechain <- function(filename){
-  vuedat <- fread(filename)
-  vuedat$Date <-  as.POSIXct(paste(as.character(vuedat$Date), vuedat$Time), format = "%y%m%d %H:%M:%S")
-  vuedat$Exp.Date <- as.POSIXct(paste(as.character(vuedat$Exp.Date), vuedat$Time), format = "%y%m%d %H:%M:%S")
-  # separate Symbol
-  ndat <- vuedat %>% separate(Symbol, c('symbol','OpName')) %>%
-    rename(meanprice = Th.Price, date = Date, expiration = Exp.Date,
-           strike = `Strike Price`, miv = `Mid IV`, callput = `Call/Put`) %>%
-    mutate(dte = as.numeric(expiration - date, units = 'days'), maturity = dte/365)
-
-  # separate spot price
-  spot <- ndat %>% dplyr::filter(`Item Type` == 'I' | `Item Type` == 'S') %>%
-    select(symbol, date, `Market Price`) %>% rename(spot = `Market Price`)
-
-  # join the spotPrice
-  ndat <- ndat %>% dplyr::filter(`Item Type` == 'O') %>%
-    dplyr::filter(!is.na(date) & !is.na(miv)) %>% # filter out extreme values
-    left_join(., spot, by = c('symbol','date')) %>%
-    select(symbol, date, expiration, strike, callput, meanprice, Bid, Asked, miv, spot, dte,
-           maturity)
-  ndat
-}
-
-#' convert chain to chain call/put pairs
-#'
-#' remove unpaired chains, average Bid/Ask as mid price
+# convert chain to chain call/put pairs
+# remove unpaired chains, average Bid/Ask as mid price
 toChainPairs <- function(chain){
   chain %>% dplyr::filter(callput == 'C') %>% mutate(C = (Bid+Asked)/2) %>%
     select(symbol, date, expiration, strike, C) %>%
@@ -202,17 +145,15 @@ toChainPairs <- function(chain){
           select(symbol, date, expiration, strike, P, spot, dte, maturity),
         by = c('symbol','date','expiration','strike')) %>%
     arrange(symbol, date, expiration, strike) %>%
-    dplyr::filter(!is.na(P) & C > spot*0.0002 & P > spot*0.0002 & dte > 4) -> chainpair
+    dplyr::filter(!is.na(P) & C > spot*0.0002 & P > spot*0.0002 ) -> chainpair
   as.data.table(chainpair)
 }
 
-#' estimate forward price with libor rate
-#'
-#' calculate forward price for the CP-pair chain with known interest rates
-#' Input: paired chain, interest rate
-#'
+# estimate forward price with libor rate
+# calculate forward price for the CP-pair chain with known interest rates
+# Input: paired chain, interest rate
 chainForwardPrice <- function(pairChain, LR=0.0169){
- # convert libor rate LR to CC rate R
+ # convert libor rate LR to continuously compounded (CC) rate R
   # estimate Forward price F based on Call/put parity
   fChain <- pairChain %>% mutate(R = log(1+LR*maturity)/maturity) %>%
     mutate( F = strike + exp(R*maturity)*(C-P), cp = C-P) %>%
@@ -232,59 +173,38 @@ chainForwardPrice <- function(pairChain, LR=0.0169){
   # join in backforward price, calculate underlying price
   left_join(fChain, FPrice, by = c('symbol','date','expiration')) %>%
     mutate(U = exp(-R*maturity)*mF) %>% dplyr::filter(!is.na(U)) %>% # combined mean F, and U
-    mutate(logmoneyness = log(strike/mF)) %>% # calculate log moneyness
-    dplyr::filter((strike -P <= mF *(1-0.00005) ) & #refine chain
-                    (strike + C >= mF *(1+0.00005) ))    -> chain2
+    mutate(logmoneyness = log(strike/mF))     -> chain2
   chain2
 }
 
-#' estimate iv from optionVue chain
+#' Estimate chain ivs, F, U
 #'
-#' @param filename optionVue chain
-#' @param LR libor rate
-#'
-#' @return refined chain with estimated IV
-#'
-#' @export
-vue.iv <- function(filename, LR){
-  rawChain <- toChainPairs(readVueChain(filename))
-  ivChain <- chain.iv(rawChain, LR)
-  ivChain
-}
-
-#' Calculate chain iv, F, U
-#'
-#' Base on BS model
+#' Using bisection method and tighter bounds proposed by Gatheral et al. 2017
 #' @param chain call/put paired option chain
 #' @param LR liborrate
 #'
 #' @export
-chain.iv <- function(chain, LR=0.01){
-  cores=detectCores()
-  cl <- makeCluster(cores[1]-1) #not to overload your computer
-  registerDoParallel(cl)
-  clusterEvalQ(cl, {library(RQuantLib)})
+estimate.iv <- function(chain, LR=0.01){
 
-  chain <- as.data.table(chainForwardPrice(chain, LR))
-  newiv <- foreach(idx = 1:nrow(chain), .combine = rbind) %dopar% {
-    #for (idx in 1:nrow(chain)){
-    ivc = EuropeanOptionImpliedVolatility('call', value = chain$C[idx],
-                                          chain$U[idx],chain$strike[idx],
-                                          0,chain$R[idx],chain$maturity[idx],0.1)
-    ivp = EuropeanOptionImpliedVolatility('put', value = chain$P[idx],
-                                          chain$U[idx],chain$strike[idx],
-                                          0,chain$R[idx],chain$maturity[idx],0.1)
-    data.frame(idx = idx, ivc = ivc[1], ivp = ivp[1])
-  }
-  #stop cluster
-  stopCluster(cl)
-  newiv <- newiv %>% dplyr::arrange(idx)
-  chain$ivc <- newiv$ivc
-  chain$ivp <- newiv$ivp
+  chain <- chainForwardPrice(chain, LR)
+  # normalized call and put prices
+  rc = chain$C/chain$U
+  rp = chain$P/chain$U
+  k = chain$logmoneyness
+  lb_c = l_bs(rc,k) #lower bound
+  ub_c = u_bs(rc,k) # upper bound
+  lb_p = l_bs(rp,k, cp = -1)
+  ub_p = u_bs(rp,k, cp = -1)
+  tiv_c = bisection(rc,k, 1, lb_c, ub_c)
+  tiv_p = bisection(rp,k, -1, lb_p, ub_p)
+
+  chain$ivc <- tiv_c/sqrt(chain$maturity)
+  chain$ivp <- tiv_p/sqrt(chain$maturity)
+
   # use otm iv, and nest the chain data (2017-08-25)
   chain <- chain %>%mutate(iv = ifelse(logmoneyness > 0, ivc,ivp)) %>%
-    select(-c(symbol, dte, cp, F)) %>%
-    group_by(date, expiration, spot, maturity, R, mF, U) %>%
+    select(-c(cp, F)) %>%
+    group_by(symbol, date, expiration, dte, spot, R, U) %>%
     nest()
   chain
 }
@@ -348,52 +268,6 @@ getLibors <- function(){
   merge(USD6MTD156N,USD12MD156N)
 }
 
-#' Import livevol zip file and generate chain and surface
-#'
-#' @param filename filename of an input zip file
-#' @param rate  Interest rate at that day
-#' @return a list contain the chain and surface, and save two to files
-#' @export
-livevol.chain <- function(filename, rate = 0.017){
-  # read rawdate from zip file
-  r_date = gsub('.*_(.*).zip', '\\1', filename)
-  print(r_date)
-  # convert to chain
-  chain <- read.livevol(filename, LR = rate)
-  #
-  saveRDS(chain, file = paste0('spxchain_',r_date,'.rds'))
 
-  # estimate surface
-#  surface = data.table();
-#  for (d in unique(chain$date)){
-#    print(as.POSIXct(d, origin = '1970-01-01'))
-#    c1 <- chain %>% filter(date == d & dte > range[1] & dte < range[2])
-#    ptm = proc.time()
-#    s1 <- svi.quasiparam.p(c1)
-#    print(proc.time()-ptm)
-#    if (show == TRUE)
-#        print(quasi.plotsurface(c1, s1, type = 'ivt'), range = range)
-#    surface = rbind(surface,s1)
-#  }
-#  saveRDS(surface, file = paste0('spxsurf_',r_date,'.rds'))
-  return(chain)
-}
 
-#' Import optionVue csv file and generate chain and surface
-#'
-#' @param filename filename of an input zip file
-#' @param rate  Interest rate at that day
-#' @return a list contain the chain and surface, and save two to files
-#' @export
-vue.chain <- function(filename, rate = 0.017){
-  rawchain = toChainPairs(read.vuechain(filename))
-  chain <- chain.iv(rawchain, rate)
-  saveRDS(chain, file = paste0('chain_',filename,'.rds'))
-#  surface <- svi.quasiparam.p(chain)
-
-#  quasi.plotsurface(chain, surface, range = range, type = 'ivt')
-#  saveRDS(surface, file = paste0('surface_',filename, '.rds'))
-#  return(list(chain = chain, surface = surface))
-  return(chain)
-}
 

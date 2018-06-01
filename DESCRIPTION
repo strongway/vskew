@@ -1,13 +1,14 @@
 Package: vskew
 Type: Package
 Title: Volatility Skew Package
-Version: 0.1.1
+Version: 0.6.0
 Author: Strongway
 Maintainer: The package maintainer <strongway@outlook.com>
-Description: This package contains wrapped functions of SVI parameterization and
-    option chain related functions. Functions can be roughly categorized into three
-    parts: import external files, chain raw iv calculation and parameterization,
-    option history price and plots.
+Description: This package contains wrapped functions of IV estimation, 
+    SVI parameterization and SABR calibrations. 
+    Functions can be roughly categorized into three parts: 
+    import external files (ivolatility, livevol),estimate IVs and parameterization,
+    volatility plots.
 Imports:
   data.table
 License: MIT + s

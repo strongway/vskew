@@ -3,11 +3,13 @@
 \name{read.ivolchain}
 \alias{read.ivolchain}
 \title{Read ivolatility option chain
-read option chain raw data downloaded from ivolatility}
+read option chain raw data downloaded from ivolatility
+read ivolatility cvs file.}
 \usage{
 read.ivolchain(filename)
 }
 \description{
 Read ivolatility option chain
 read option chain raw data downloaded from ivolatility
+read ivolatility cvs file.
 }
