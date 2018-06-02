@@ -119,10 +119,9 @@ calibrate.sabr <- function(df,b=0.5){
 #' @param kr relative strike k range
 #' @param tr tau range
 #' @export
-plot.surface <- function(sdf, kr = c(0.7, 1.3), tr = c(0.01,1)){
-  sdf %>% filter(err < 0.001) -> sdf
+plot.surface <- function(sdf, kr = c(0.7, 1.3), tr = c(10,180)){
   ks = seq(kr[1],kr[2],by = 0.005)
-  ts = unique(sdf$t)
+  ts = unique(sdf$dte)
   ts = ts[ts>tr[1] & ts <=tr[2]]
   ivs = matrix(NROW(ts)*NROW(ks),nrow = NROW(ts),ncol = NROW(ks))
   for (i in 1:NROW(ts)){
@@ -131,7 +130,7 @@ plot.surface <- function(sdf, kr = c(0.7, 1.3), tr = c(0.01,1)){
   }
   # plot surface using plot_ly
   plot_ly(x = ks, y = ts, z = ivs) %>% add_surface() %>%
-    layout(title = 'Volatility Surface', scene = list(xaxis = list(title ='K/F'),
+    plotly::layout(title = 'Volatility Surface', scene = list(xaxis = list(title ='K/F'),
            yaxis = list(title = 'Tau'), zaxis = list(title = 'Vol')))
 }
 
@@ -140,12 +139,59 @@ plot.surface <- function(sdf, kr = c(0.7, 1.3), tr = c(0.01,1)){
 #' Visualize the term structure (Vol ATM) from SABR model
 #' @param sdf data.frame of sabr model
 #' @export
-plot.termstructure <- function(sdf, tr = c(14,240)){
-  sdf %>% filter(err < 0.001, dte >=tr[1], dte <=tr[2]) -> sdf
-  sdf %>% plot_ly(x = ~round(dte), y = ~a, type = 'scatter', mode = 'lines + markers') %>%
-    layout(title = 'Term Structure', xaxis = list(title = 'Tau'),
-           yaxis = list(title = 'Volatility'))
+plot.termstructure <- function(sdf, tr = c(14,180)){
+  sdf %>% filter(dte >=tr[1], dte <=tr[2]) -> sdf
+  # fittd curve
+  fita = lm(a ~ dte + I(dte^2) + I(dte^0.5), data = sdf)
+  fitr = lm(log(1.1+r) ~ dte + I(dte^2) , data = sdf)
+  fitv = lm(log(v) ~ dte + I(dte^2), data = sdf)
+  ndf = data.frame(dte = seq(tr[1],tr[2])) # new data
+  na = predict(fita,ndf)
+  nr = exp(predict(fitr,ndf)) - 1.1
+  nv = exp(predict(fitv,ndf))
 
+  figa = sdf %>% plot_ly(x = ~dte, y = ~a, type = 'scatter',
+                        mode = 'markers', alpha = 0.3, name = 'V0') %>%
+    plotly::layout(xaxis = list(title = 'Tau'),
+           yaxis = list(title = 'Volatility')) %>%
+      add_trace(x = ndf$dte,  y = na,
+                           mode = 'lines', name = 'V0',alpha = 1 )
+
+  # Add SABR other parameters rho, volvol
+  figr = sdf %>% plot_ly(x = ~dte, y = ~r, type = 'scatter',
+                        mode = 'markers', alpha = 0.3, name = 'rho') %>%
+    plotly::layout(xaxis = list(title = 'Tau'),
+           yaxis = list(title = 'rho'))%>%
+    add_trace(x = ndf$dte,  y = nr,
+              mode = 'lines', name = 'rho',alpha = 1 )
+  figv = sdf %>% plot_ly(x = ~dte, y = ~v, type = 'scatter',
+                         mode = 'markers', alpha = 0.3, name = 'volvol') %>%
+    plotly::layout(xaxis = list(title = 'Tau'),
+           yaxis = list(title = 'Volvol'))  %>%
+    add_trace(x = ndf$dte,  y = nv,
+              mode = 'lines', name = 'volvol',alpha = 1 )
+  subplot(figa,subplot(figr,figv,nrows = 2, titleX = TRUE,
+                       titleY = TRUE))
+}
+
+#' Fit Term structure over tau
+#'
+#' fit non-linear relation of v0(t), rho(t), and volvol(t)
+#' @param sdf data.frame of sabr model
+#' @export
+fit.termstructure <- function(sdf, tr = c(14,180), b = 0.5){
+  sdf %>% filter( dte >=tr[1], dte <=tr[2]) -> sdf
+  # fittd curve
+  fita = lm(a ~ dte + I(dte^2) + I(dte^0.5), data = sdf)
+  fitr = lm(log(1.1+r) ~ dte + I(dte^2) , data = sdf)
+  fitv = lm(log(v) ~ dte + I(dte^2), data = sdf)
+  ndf = data.frame(dte = seq(tr[1],tr[2])) # new data
+  ndf$a = predict(fita,ndf)
+  ndf$r = exp(predict(fitr,ndf)) - 1.1
+  ndf$v = exp(predict(fitv,ndf))
+  ndf$b = b
+  ndf$t = ndf$dte/365
+  return(ndf)
 }
 
 #' Visualize SABR fit

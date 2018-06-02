@@ -4,7 +4,7 @@
 \alias{plot.surface}
 \title{volatility surface}
 \usage{
-\method{plot}{surface}(sdf, kr = c(0.7, 1.3), tr = c(0.01, 1))
+\method{plot}{surface}(sdf, kr = c(0.7, 1.3), tr = c(10, 180))
 }
 \arguments{
 \item{sdf}{data.frame of sabr parameters}

@@ -272,7 +272,7 @@ trans.fit_curve <- function(x, chain){
   scaley = x[2]
   ungroup(chain) %>% mutate(iv2 = iv - iv0*scaley,
                             kth2 = kth - iv0*scalex) %>%
-    lm(iv2 ~ poly(kth2,3, raw = TRUE), data = ., weights = weight) -> lr2
+    lm(iv2 ~ poly(kth2,3, raw = TRUE), data = ., weights = .$weight) -> lr2
   return(sum(lr2$residuals^2*lr2$weight))
 }
 

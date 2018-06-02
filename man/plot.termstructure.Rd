@@ -4,7 +4,7 @@
 \alias{plot.termstructure}
 \title{Term structure of vol surface}
 \usage{
-\method{plot}{termstructure}(sdf, tr = c(14, 240))
+\method{plot}{termstructure}(sdf, tr = c(14, 180))
 }
 \arguments{
 \item{sdf}{data.frame of sabr model}
